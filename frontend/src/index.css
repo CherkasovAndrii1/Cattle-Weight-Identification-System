@@ -1,0 +1,39 @@
+/* src/index.css или src/styles/global.css */
+body {
+  margin: 0;
+  /* Применяем новый шрифт Poppins, с запасным вариантом sans-serif */
+  font-family: 'Poppins', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Можно оставить определение фона и цвета в App.jsx,
+     либо перенести их сюда для глобального применения */
+  background-color: #121212;
+  color: #e0e0e0;
+}
+
+/* Убедимся, что кнопки и инпуты наследуют шрифт */
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit; /* Можно добавить для консистентности */
+}
+
+/* Сделаем H1 чуть менее жирным по умолчанию (если используется Poppins) */
+h1, h2, h3 {
+   font-weight: 500; /* Или 600 */
+}
+
+/* Улучшим стиль ссылок по умолчанию */
+a {
+    color: #bb86fc; /* Фиолетовый акцент для темной темы */
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+a:hover {
+    color: #ffffff; /* Белый при наведении */
+    text-decoration: underline;
+}

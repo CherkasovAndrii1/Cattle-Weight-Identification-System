@@ -1,0 +1,103 @@
+/* Центрируем форму на странице (предполагается, что компонент рендерится внутри контейнера) */
+.pageContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh; /* Или другая высота, чтобы занять экран */
+    background-color: #1a1a1a; /* Темный фон для страницы, если нужно */
+    padding: 20px;
+  }
+  
+  /* Основной контейнер формы */
+  .formContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 18px; /* Немного увеличим отступ */
+    max-width: 350px; /* Немного шире */
+    width: 100%; /* Чтобы на малых экранах занимала доступную ширину */
+    margin: 0 auto; /* Центрирование если pageContainer не используется */
+    padding: 30px; /* Больше отступов внутри */
+    background-color: #2b2b2b; /* Темный фон для формы */
+    border: 1px solid #444; /* Темная граница */
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Тень для объема */
+    color: #e0e0e0; /* Светлый текст */
+  }
+  
+  .formContainer h2 {
+    text-align: center;
+    margin-bottom: 15px; /* Отступ под заголовком */
+    color: #ffffff; /* Белый заголовок */
+    font-weight: 500;
+  }
+  
+  /* Стили для полей ввода */
+  .inputField {
+    padding: 12px 15px; /* Увеличим padding */
+    border-radius: 6px; /* Слегка скруглим */
+    border: 1px solid #555; /* Темная граница */
+    background-color: #3f3f3f; /* Фон поля ввода */
+    color: #e0e0e0; /* Цвет текста в поле */
+    font-size: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  /* Стиль при фокусе */
+  .inputField:focus {
+    outline: none;
+    border-color: #007bff; /* Цвет границы при фокусе */
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2); /* Тень при фокусе */
+  }
+  
+  /* Стиль для отключенных полей */
+  .inputField:disabled {
+    background-color: #4a4a4a;
+    cursor: not-allowed;
+  }
+  
+  /* Стили для кнопки */
+  .submitButton {
+    padding: 12px 15px;
+    cursor: pointer;
+    background-color: #28a745; /* Зеленый цвет для регистрации */
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+  }
+  
+  .submitButton:hover:not(:disabled) {
+    background-color: #1e7e34; /* Темно-зеленый при наведении */
+}
+  
+  /* Стиль для отключенной кнопки */
+  .submitButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  /* Стиль для сообщений об ошибках */
+  .errorText {
+    color: #ff4d4d; /* Ярко-красный для ошибок */
+    font-size: 0.9em;
+    text-align: center;
+    margin-top: 5px; /* Уменьшим отступ сверху */
+    min-height: 1.2em; /* Резервируем место, чтобы форма не прыгала */
+  }
+  
+  /* Ссылка для перехода на регистрацию/вход (если нужна) */
+  .switchFormLink {
+      text-align: center;
+      margin-top: 15px;
+  }
+  
+  .switchFormLink a {
+      color: #00aaff;
+      text-decoration: none;
+  }
+  
+  .switchFormLink a:hover {
+      text-decoration: underline;
+  }

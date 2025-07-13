@@ -1,0 +1,16 @@
+albumentations==2.0.5
+flask==3.1.0
+flask-bcrypt==1.0.1
+flask-cors==5.0.1
+flask-jwt-extended==4.7.1
+flask-migrate==4.1.0
+flask-sqlalchemy==3.1.1
+keras==3.9.2
+numpy==2.1.2
+opencv-python==4.11.0.86
+segmentation-models-pytorch==0.4.0
+sqlalchemy==2.0.40
+tensorflow==2.19.0
+torch==2.6.0+cu126
+torchvision==0.21.0+cu126
+werkzeug==3.1.3
