@@ -14,5 +14,19 @@ Cattle-Weight-Identification-System
 ### Navigate to the backend directory in your terminal: 
 * cd backend
   
-Install the required Python packages using pip:
+### Install the required Python packages using pip:
 * pip install -r requirements.txt
+
+### Initialize database by following commands:
+* set FLASK_APP=backend.py
+* flask db init
+* flask db migrate -m "Initial migration with user and history tables."
+* flask db upgrade
+
+### Start the backend server
+* python backend.py
+
+### Make sure you see the following lines:
+* Segmentation model (PyTorch) loaded successfully
+* Keypoint model (Keras) loaded successfully
+* Weight prediction model loaded successfully
