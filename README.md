@@ -9,7 +9,7 @@ Cattle-Weight-Identification-System
 * best_enhanced_triple_cattle_weight_model_res18_100ep_2600p.pth
 * best_keypoints_model_9pts_limited.keras
 
-## 1. Backend Setup 🐍
+## 1. Backend Setup 
 ### Install Python Dependencies
 ### Navigate to the backend directory in your terminal: 
 * cd backend
@@ -30,3 +30,16 @@ Cattle-Weight-Identification-System
 * Segmentation model (PyTorch) loaded successfully
 * Keypoint model (Keras) loaded successfully
 * Weight prediction model loaded successfully
+
+## 2. Frontend Setup 
+
+### Navigate to the backend directory in your terminal: 
+* cd frontend
+
+### Install packages used in project by command:
+
+* npm install --legacy-peer-deps
+
+### Start the frontend server:
+
+* npm start
