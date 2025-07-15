@@ -1,5 +1,4 @@
 # Cattle-Weight-Identification-System
-Cattle-Weight-Identification-System
 
 ## Before all you need to install [Node JS](https://nodejs.org/en/download) and [Python 3.11](https://www.python.org/downloads/release/python-3119/)
 ## Than download the backend [models](https://www.kaggle.com/models/vitaliyblackhole/cattle-weight-identification) through Kaggle, no registration needed just scroll down and download three models or download archive of them
