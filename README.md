@@ -1,6 +1,6 @@
 # Cattle-Weight-Identification-System
 
-## Before all you need to install [Node JS](https://nodejs.org/en/download) and [Python 3.11](https://www.python.org/ftp/python/3.11.9/python-3.11.9.exe)
+## Before all you need to install [Node JS](https://nodejs.org/dist/v22.17.0/node-v22.17.0-x64.msi) and [Python 3.11](https://www.python.org/ftp/python/3.11.9/python-3.11.9.exe)
 ### Do not forget to add [Python](https://www.python.org/ftp/python/3.11.9/python-3.11.9.exe) to PATH
 
 ## Also install [Anaconda](https://drive.google.com/file/d/1FPkHBKS8DUgHBjUwH5iMxuTc7u5BwiIL/view?usp=sharing) to make and environment for backend server
