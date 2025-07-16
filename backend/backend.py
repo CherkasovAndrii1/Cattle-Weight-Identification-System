@@ -18,7 +18,7 @@ from flask import Flask, request, jsonify, url_for
 from werkzeug.utils import secure_filename
 
 import albumentations as A
-from albumentations.pytorch import ToTensorV2 # Для трансформации в тензор
+from albumentations.pytorch import ToTensorV2 
 import segmentation_models_pytorch as smp
 from flask_cors import CORS
 
@@ -70,23 +70,21 @@ os.makedirs(app.config['KEYPOINTS_OUTPUT_FOLDER'], exist_ok=True)
 # Device configuration (для PyTorch)
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# --- НОВАЯ КОНФИГУРАЦИЯ ДЛЯ БД ---
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your-super-secret-key-replace-me') # ЗАМЕНИТЕ КЛЮЧ В РЕАЛЬНОМ ПРИЛОЖЕНИИ
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your-super-secret-key-replace-me') 
 # ------------------------------------
 
-# --- ИНИЦИАЛИЗАЦИЯ РАСШИРЕНИЙ ---
-db = SQLAlchemy(app)      # Для базы данных
-migrate = Migrate(app, db) # Для миграций
-bcrypt = Bcrypt(app)      # Для хэширования паролей
-jwt = JWTManager(app)     # Инициализация JWTManager
+db = SQLAlchemy(app)      
+migrate = Migrate(app, db)
+bcrypt = Bcrypt(app)     
+jwt = JWTManager(app)     
 # --------------------------------
 
-# === МОДЕЛИ БАЗЫ ДАННЫХ ===
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False) # Email как основной логин
+    email = db.Column(db.String(120), unique=True, nullable=False) 
     password_hash = db.Column(db.String(60), nullable=False)
 
     def __repr__(self):
@@ -98,14 +96,14 @@ class User(db.Model):
     def check_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
 
-# <<< НОВАЯ МОДЕЛЬ: ИСТОРИЯ ЗАГРУЗОК >>>
+
 class UploadHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    processing_type = db.Column(db.String(50), nullable=False) # 'segmentation', 'keypoints', 'weight'
+    processing_type = db.Column(db.String(50), nullable=False) 
     original_filename = db.Column(db.String(200))
     result_image_url = db.Column(db.String(500))
-    result_data = db.Column(db.Text, nullable=True) # JSON строка со статистикой/точками/весом
+    result_data = db.Column(db.Text, nullable=True) 
     uploaded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     user = db.relationship('User', backref=db.backref('uploads', lazy=True))
@@ -124,12 +122,10 @@ class UploadHistory(db.Model):
             "result_data": json.loads(self.result_data) if self.result_data else None,
             "uploaded_at": self.uploaded_at.isoformat()
         }
-# ===============================
 
 
-# --- Определения ML моделей ---
 
-# Класс модели предсказания веса (без изменений)
+
 class EnhancedTripleInputCattleWeightCNN(nn.Module):
     def __init__(self, num_keypoints: int = NUM_KEYPOINTS, pretrained: bool = True):
        super().__init__()
@@ -166,13 +162,11 @@ class EnhancedTripleInputCattleWeightCNN(nn.Module):
        weight = self.combined_fc(combined_features)
        return weight
 
-# Функция создания модели сегментации (без изменений)
 def create_segmentation_model_pytorch(num_classes=NUM_CLASSES_SEG):
-    # <<< ИСПРАВЛЕНИЕ: Эта функция не должна пытаться загружать веса, только создавать модель >>>
     try:
         model_instance = smp.Unet(
             encoder_name="resnet18",
-            encoder_weights="imagenet", # Можно оставить imagenet для инициализации
+            encoder_weights="imagenet",
             in_channels=3,
             classes=num_classes,
         )
@@ -181,15 +175,14 @@ def create_segmentation_model_pytorch(num_classes=NUM_CLASSES_SEG):
         print(f"Error creating PyTorch segmentation model structure: {e}")
         raise
 
-# --- Модели (Инициализируем как None) ---
+
 segmentation_model = None
 keypoint_model = None
 weight_prediction_model = None
 
-# --- Загрузка моделей при старте ---
+
 print("--- Загрузка моделей ---")
-# 1. Модель сегментации (PyTorch или Keras?)
-# <<< ИЗМЕНЕНО: Проверяем расширение файла для правильной загрузки >>>
+
 try:
     segmentation_model = create_segmentation_model_pytorch(NUM_CLASSES_SEG) # Создаем структуру
     if os.path.exists(SEGMENTATION_MODEL_PATH):
@@ -205,7 +198,6 @@ except Exception as e:
     segmentation_model = None
 
 
-# 2. Модель ключевых точек (Keras)
 try:
     if os.path.exists(KEYPOINT_MODEL_PATH):
         keypoint_model = load_keras_model(KEYPOINT_MODEL_PATH)
@@ -218,7 +210,6 @@ except Exception as e:
     import traceback; traceback.print_exc()
     keypoint_model = None
 
-# 3. Модель предсказания веса (PyTorch)
 try:
     weight_prediction_model = EnhancedTripleInputCattleWeightCNN(num_keypoints=NUM_KEYPOINTS, pretrained=False).to(DEVICE)
     if os.path.exists(WEIGHT_MODEL_PATH):
@@ -234,7 +225,6 @@ except Exception as e:
 print("--- Загрузка моделей завершена ---")
 
 
-# --- Вспомогательные функции (без изменений) ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -245,14 +235,10 @@ def get_pytorch_transforms(target_size: tuple[int, int], is_train: bool = False)
         ToTensorV2(),
     ])
 
-# --- Функции предсказания (без изменений в логике, но с проверкой типа модели сегментации) ---
 def predict_segmentation(image_rgb, target_size_seg=TARGET_SIZE_SEG):
-    # <<< ИЗМЕНЕНО: Проверка типа модели >>>
     if not isinstance(segmentation_model, torch.nn.Module):
-        # Если модель не PyTorch (None, строка-заглушка Keras или что-то еще)
         print("Warning: PyTorch segmentation model not available or loaded incorrectly. Skipping segmentation.")
         return None, None, None, "Модель сегментации PyTorch не загружена или неверного типа."
-    # --- Дальше логика для PyTorch модели ---
     try:
         original_height, original_width = image_rgb.shape[:2]
         transform = A.Compose([
@@ -274,19 +260,14 @@ def predict_segmentation(image_rgb, target_size_seg=TARGET_SIZE_SEG):
         print(f"Error in segmentation prediction: {str(e)}"); import traceback; traceback.print_exc()
         return None, None, None, f"Ошибка сегментации: {str(e)}"
 
-# --- Остальные функции предсказания, сохранения, статистики (без изменений) ---
 def apply_mask_to_image(image_bgr, mask_original_size):
     if mask_original_size is None or image_bgr is None: return image_bgr
     try:
-        # <<< ИЗМЕНЕНО: Более явная проверка индекса класса 'cattle' >>>
-        # Убедитесь, что класс 'cattle' ИМЕЕТ индекс 1 в вашей модели!
         CATTLE_CLASS_INDEX = 1
         binary_mask = (mask_original_size == CATTLE_CLASS_INDEX).astype(np.uint8)
-        if np.sum(binary_mask) == 0: # Если маска пустая
+        if np.sum(binary_mask) == 0:
              print("Warning: Segmentation mask for 'cattle' class is empty.")
-             # Можно вернуть оригинал или черное изображение в зависимости от желаемого поведения
-             # return image_bgr # Возвращаем оригинал
-             return np.zeros_like(image_bgr) # Возвращаем черное изображение
+             return np.zeros_like(image_bgr) 
         mask_3channel = cv2.cvtColor(binary_mask * 255, cv2.COLOR_GRAY2BGR)
         segmented_image_bgr = cv2.bitwise_and(image_bgr, mask_3channel)
         return segmented_image_bgr
@@ -323,7 +304,6 @@ def predict_keypoints_keras(image_bgr, model, target_size=TARGET_SIZE_KP):
         image_resized = cv2.resize(image_bgr, target_size)
         image_input = image_resized / 255.0 # Ожидаем BGR [0,1]
         image_input = np.expand_dims(image_input, axis=0)
-        # <<< ИЗМЕНЕНО: Явная проверка типа модели перед вызовом predict >>>
         if not isinstance(model, tf.keras.Model):
              return None, "Загруженный объект для keypoint_model не является моделью Keras."
         keypoints_pred_scaled_flat = model.predict(image_input, verbose=0)
@@ -333,7 +313,6 @@ def predict_keypoints_keras(image_bgr, model, target_size=TARGET_SIZE_KP):
         print(f"Ошибка при предсказании точек Keras: {e}"); import traceback; traceback.print_exc()
         return None, f"Ошибка предсказания точек Keras: {str(e)}"
 
-# predict_weight_combined остается без изменений, т.к. вызывает predict_keypoints_keras и predict_segmentation
 def predict_weight_combined(
     orig_image_bgr: np.ndarray, weight_model: nn.Module, keypoint_model_keras,
     segmentation_model_pytorch: nn.Module, device: torch.device,
@@ -344,7 +323,7 @@ def predict_weight_combined(
     if keypoint_model_keras is None : return None, "Модель ключевых точек Keras не загружена." # Явная проверка
     start_time_total = time.time(); processing_times = {}
     try:
-        # 1. Ключевые точки
+       
         kp_start = time.time()
         keypoints_xy, kp_error = predict_keypoints_keras(orig_image_bgr, keypoint_model_keras, target_size_kp)
         processing_times['keypoints_prediction'] = time.time() - kp_start
@@ -352,14 +331,14 @@ def predict_weight_combined(
         if keypoints_xy is None: return None, "Не удалось получить ключевые точки (None)."
         if keypoints_xy.shape != (NUM_KEYPOINTS, 2): return None, f"Неверная форма ключевых точек после предсказания: {keypoints_xy.shape}"
 
-        # 2. Сегментация
+       
         seg_start = time.time(); orig_image_rgb = cv2.cvtColor(orig_image_bgr, cv2.COLOR_BGR2RGB)
-        # Вызываем predict_segmentation, он сам обработает случай, если модель не PyTorch
+        
         seg_mask_original_size, h, w, seg_error = predict_segmentation(orig_image_rgb, target_size_seg)
         processing_times['segmentation_prediction'] = time.time() - seg_start
-        # Ошибку сегментации обрабатываем ниже при применении маски
+        
 
-        # 3. Применение маски
+        
         mask_apply_start = time.time()
         if seg_mask_original_size is not None:
             segmented_image_bgr = apply_mask_to_image(orig_image_bgr, seg_mask_original_size)
@@ -369,7 +348,7 @@ def predict_weight_combined(
             segmented_image_bgr = orig_image_bgr.copy() # Используем копию оригинала
         processing_times['mask_application'] = time.time() - mask_apply_start
 
-        # 4. Предобработка для модели веса
+        
         prep_start = time.time(); transform_weight = get_pytorch_transforms(target_size_weight)
         orig_image_rgb_for_weight = cv2.cvtColor(orig_image_bgr, cv2.COLOR_BGR2RGB)
         segmented_image_rgb_for_weight = cv2.cvtColor(segmented_image_bgr, cv2.COLOR_BGR2RGB)
@@ -382,7 +361,7 @@ def predict_weight_combined(
         keypoints_tensor = torch.tensor(normalized_keypoints_flat, dtype=torch.float32).unsqueeze(0).to(device)
         processing_times['preprocessing'] = time.time() - prep_start
 
-        # 5. Предсказание веса
+        
         weight_start = time.time(); weight_model.eval()
         with torch.no_grad(): predicted_weight = weight_model(orig_tensor, seg_tensor, keypoints_tensor).item()
         processing_times['weight_prediction'] = time.time() - weight_start
@@ -395,20 +374,17 @@ def predict_weight_combined(
         return None, f"Внутренняя ошибка при предсказании веса: {str(e)}"
 
 
-# --- Функции Сохранения Результатов (без изменений) ---
 def save_segmentation_overlay(original_img_rgb, pred_mask, original_height, original_width, filename):
-    # <<< ИЗМЕНЕНО: Проверка на None перед использованием маски >>>
     if pred_mask is None:
         print("Error: Cannot save segmentation overlay, prediction mask is None.")
         return None
     try:
         base, ext = os.path.splitext(filename); safe_filename = f'segmentation_{secure_filename(base)}_{str(uuid.uuid4())[:8]}.png'
         output_path_absolute = os.path.join(app.config['SEGMENTATION_OUTPUT_FOLDER'], safe_filename)
-        resized_mask = pred_mask # Маска уже оригинального размера
+        resized_mask = pred_mask 
         overlay_rgb = original_img_rgb.copy(); colors = {0: [0, 0, 0], 1: [0, 255, 0], 2: [255, 0, 0]} # Убедитесь, что индексы верны!
         for class_id, color_rgb in colors.items():
-            # Проверка границ индекса
-            if class_id >= 0: # and class_id < NUM_CLASSES_SEG (если есть фон):
+            if class_id >= 0:
                  overlay_rgb[resized_mask == class_id] = list(color_rgb)
         alpha = 0.4; final_overlay = cv2.addWeighted(overlay_rgb, alpha, original_img_rgb, 1 - alpha, 0)
         overlay_bgr = cv2.cvtColor(final_overlay, cv2.COLOR_RGB2BGR); success = cv2.imwrite(output_path_absolute, overlay_bgr)
@@ -420,10 +396,8 @@ def save_segmentation_overlay(original_img_rgb, pred_mask, original_height, orig
     except Exception as e: print(f"Error saving segmentation overlay: {str(e)}"); import traceback; traceback.print_exc(); return None
 
 def draw_and_save_keypoints_visualization(image_bgr, keypoints, filename):
-    # <<< ИЗМЕНЕНО: Проверка на None перед использованием точек >>>
     if keypoints is None:
          print("Error: Cannot draw keypoints visualization, keypoints array is None.")
-         # Можно вернуть путь к оригинальному изображению или None
          return None, "Keypoints array is None, cannot visualize."
     try:
         base, ext = os.path.splitext(filename); unique_id = str(uuid.uuid4())[:8]
@@ -432,7 +406,6 @@ def draw_and_save_keypoints_visualization(image_bgr, keypoints, filename):
         image_with_keypoints = image_bgr.copy()
         color_map = [(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255), (0,255,255), (128,0,128), (0,128,128), (128,128,0)]
         radius = max(5, int(min(image_bgr.shape[:2]) * 0.01)); thickness = -1; contour_thickness = 2; font_scale = 0.6; font_thickness = 1
-        # Проверка len(keypoints) не нужна, если мы уже проверили shape в process_keypoints_and_save
         for i, point in enumerate(keypoints):
              x, y = int(point[0]), int(point[1])
              if 0 <= x < image_with_keypoints.shape[1] and 0 <= y < image_with_keypoints.shape[0]:
@@ -450,7 +423,6 @@ def draw_and_save_keypoints_visualization(image_bgr, keypoints, filename):
         else: error_msg = f"Ошибка сохранения файла визуализации точек: {output_path_absolute}"; print(error_msg); return None, error_msg
     except Exception as e: import traceback; error_msg = f"Ошибка при визуализации точек: {str(e)}"; print(error_msg); traceback.print_exc(); return None, error_msg
 
-# --- Статистика (без изменений) ---
 def get_segmentation_stats(mask, original_height, original_width):
     if mask is None: return None
     try:
@@ -464,13 +436,8 @@ def get_segmentation_stats(mask, original_height, original_width):
     except Exception as e: print(f"Error calculating stats: {str(e)}"); return None
 
 
-# <<< ОБНОВЛЕНО: Добавлена функция process_keypoints_and_save >>>
-# --- НОВАЯ функция для обработки и сохранения точек ---
 def process_keypoints_and_save(image_bgr: np.ndarray, original_filename: str) -> tuple[np.ndarray | None, str | None, str | None]:
-    """
-    Обрабатывает изображение для получения ключевых точек, сохраняет визуализацию.
-    Возвращает: (keypoints_array, relative_viz_path, error_message)
-    """
+
     if keypoint_model is None:
         return None, None, "Keypoint model is not loaded"
 
@@ -480,15 +447,13 @@ def process_keypoints_and_save(image_bgr: np.ndarray, original_filename: str) ->
             return None, None, f"Keypoint prediction failed: {error_pred}"
         if keypoints_array is None: # На всякий случай
              return None, None, "Keypoint prediction returned None without error."
-        # Проверяем форму перед визуализацией
         if keypoints_array.shape != (NUM_KEYPOINTS, 2):
              return None, None, f"Keypoint prediction returned invalid shape: {keypoints_array.shape}"
 
 
         relative_path_for_url, error_vis = draw_and_save_keypoints_visualization(image_bgr, keypoints_array, original_filename)
         if error_vis:
-            # Возвращаем точки, но с ошибкой виз.
-            # Клиент решит, что делать (например, показать точки на оригинале)
+
             return keypoints_array, None, f"Failed to save keypoint visualization: {error_vis}"
 
         return keypoints_array, relative_path_for_url, None # Успех
@@ -499,10 +464,10 @@ def process_keypoints_and_save(image_bgr: np.ndarray, original_filename: str) ->
 # ----------------------------------------------------
 
 
-# === Маршруты API ===
+
 
 @app.route('/api/v1/segmentation', methods=['POST'])
-@jwt_required() # <<< ДОБАВЛЕН ДЕКОРАТОР >>>
+@jwt_required() 
 def segmentation_predict_route():
     user_id = get_jwt_identity()
     start_time = time.time()
@@ -524,43 +489,34 @@ def segmentation_predict_route():
 
         pred_mask, original_height, original_width, error = predict_segmentation(image_rgb, target_size_seg=TARGET_SIZE_SEG)
 
-        # <<< ИЗМЕНЕНО: Проверка segmentation_model на None или строку-заглушку Keras >>>
         if segmentation_model is None or not isinstance(segmentation_model, torch.nn.Module):
-             # Если модель не загружена или это не PyTorch модель
-             # Предсказание вернет ошибку, или уже вернуло None
-             # Если pred_mask есть, но была ошибка в predict_segmentation (например, из-за типа модели)
              if error:
                  print(f"Segmentation prediction function reported error: {error}")
-                 # Можно решить возвращать ошибку или продолжать без сегментации
-                 # return jsonify({"success": False, "error": f"Segmentation prediction failed: {error}"}), 500
-                 # Пока продолжаем без маски, если есть ошибка, но предсказание что-то вернуло
-                 pred_mask = None # Сбрасываем маску
-             else: # Если модель не загружена изначально
+                 
+                 pred_mask = None 
+             else: 
                  print("Segmentation model not loaded or not a PyTorch model.")
                  pred_mask = None
-                 # Не возвращаем ошибку 503, позволяем продолжить без сегментации
-        elif error: # Если это PyTorch модель, но была ошибка предсказания
+
+        elif error: 
              return jsonify({"success": False, "error": f"Segmentation prediction failed: {error}"}), 500
 
         processing_time_s = time.time() - start_time
         processing_time_str = f"{processing_time_s:.3f}s"
 
         output_rel_path = save_segmentation_overlay(image_rgb, pred_mask, original_height, original_width, original_filename)
-        # <<< ИЗМЕНЕНО: Не возвращаем ошибку, если не удалось сохранить оверлей >>>
         if output_rel_path is None:
              print("Warning: Failed to save segmentation overlay.")
-             # return jsonify({"success": False, "error": "Failed to save segmentation overlay"}), 500
 
         stats = get_segmentation_stats(pred_mask, original_height, original_width)
         image_url = None
-        if output_rel_path: # Генерируем URL только если оверлей сохранен
+        if output_rel_path: 
             try:
                 image_url = url_for('static', filename=output_rel_path, _external=True)
                 print(f"Generated Segmentation URL: {image_url}")
             except Exception as url_e:
                 print(f"Error generating URL: {url_e}")
 
-        # Сохранение в историю
         try:
             history_entry = UploadHistory(
                 user_id=user_id, processing_type='segmentation', original_filename=original_filename,
@@ -571,7 +527,6 @@ def segmentation_predict_route():
         except Exception as db_e:
             db.session.rollback(); print(f"!!! DATABASE ERROR saving history for user {user_id}: {db_e}")
 
-        # Возвращаем успех, даже если оверлей не сохранился (но URL будет None)
         return jsonify({"success": True, "image_url": image_url, "stats": stats, "processing_time": processing_time_str}), status_code
     except Exception as e:
         import traceback; traceback.print_exc()
@@ -582,9 +537,8 @@ def segmentation_predict_route():
              except OSError as err: print(f"Error removing file {file_path}: {err}")
 
 
-# <<< ОБНОВЛЕНО: Используем process_keypoints_and_save >>>
 @app.route('/api/v1/keypoints', methods=['POST'])
-@jwt_required() # <<< ДОБАВЛЕН ДЕКОРАТОР >>>
+@jwt_required()
 def keypoints_predict_route():
     user_id = get_jwt_identity()
     start_time = time.time(); processing_time_str = "N/A"; upload_path = None; status_code = 200
@@ -598,28 +552,24 @@ def keypoints_predict_route():
     upload_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{str(uuid.uuid4())}_keypoints_user{user_id}_{original_filename}")
 
     try:
-        # Читаем файл в память, чтобы не сохранять дважды
         file_bytes = file.read()
-        # Проверяем, что байты прочитаны
         if not file_bytes:
              return jsonify({"success": False, "error": "Could not read file bytes"}), 400
-        # Декодируем для OpenCV
         nparr = np.frombuffer(file_bytes, np.uint8)
         image_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if image_bgr is None: return jsonify({"success": False, "error": "Could not decode image from bytes"}), 400
         print(f"Image decoded successfully for user {user_id}")
 
-        # Вызываем новую функцию
         keypoints_array, relative_viz_path, error_process = process_keypoints_and_save(image_bgr, original_filename)
 
         if error_process:
-             if keypoints_array is None: # Критическая ошибка (модель не загружена или предсказание не удалось)
+             if keypoints_array is None: 
                  print(f"Error processing keypoints (fatal): {error_process}")
                  err_code = 503 if "model is not loaded" in error_process else 500
                  return jsonify({"success": False, "error": error_process}), err_code
-             else: # Ошибка только визуализации
+             else: 
                  print(f"Warning processing keypoints (visualization failed): {error_process}")
-                 # Ошибка визуализации не должна быть 500 для клиента
+
 
         image_url = None
         if relative_viz_path:
@@ -631,7 +581,7 @@ def keypoints_predict_route():
 
         processing_time_s = time.time() - start_time; processing_time_str = f"{processing_time_s:.3f}s"
 
-        # Сохранение в историю
+
         try:
              history_entry = UploadHistory(
                  user_id=user_id, processing_type='keypoints', original_filename=original_filename,
@@ -654,14 +604,12 @@ def keypoints_predict_route():
         import traceback; traceback.print_exc()
         return jsonify({"success": False, "error": f"Внутренняя ошибка сервера: {str(e)}"}), 500
     finally:
-        # Временный файл больше не сохраняется/удаляется здесь
+
         pass
-# ----------------------------------------------------
 
 
-# <<< ОБНОВЛЕНО: Используем process_keypoints_and_save, убран requests >>>
 @app.route('/api/v1/weight', methods=['POST'])
-@jwt_required() # <<< ДОБАВЛЕН ДЕКОРАТОР >>>
+@jwt_required()
 def weight_predict_route():
     user_id = get_jwt_identity()
     start_time = time.time(); processing_time_str = "N/A"; upload_path = None; status_code = 200; predicted_weight = None; weight_image_url = None; keypoints_image_url = None; kp_process_error = None
@@ -673,10 +621,9 @@ def weight_predict_route():
 
     if not isinstance(weight_prediction_model, torch.nn.Module): # Проверяем тип модели веса
          return jsonify({"success": False, "error": "Weight prediction model is not loaded or is not a PyTorch model"}), 503
-    # keypoint_model проверяется внутри process_keypoints_and_save
 
     original_filename = secure_filename(file.filename)
-    # Читаем файл в память один раз
+
     file_bytes = file.read()
     if not file_bytes: return jsonify({"success": False, "error": "Could not read file bytes"}), 400
     nparr = np.frombuffer(file_bytes, np.uint8)
@@ -685,17 +632,16 @@ def weight_predict_route():
     print(f"Image decoded successfully by user {user_id} for weight prediction")
 
     try:
-        # --- 2. Вызов функции для получения точек и пути к визуализации ---
         kp_process_start = time.time()
         keypoints_xy, relative_kp_viz_path, kp_process_error = process_keypoints_and_save(image_bgr, original_filename)
         print(f"Keypoint processing and saving took: {time.time() - kp_process_start:.3f}s")
 
-        if keypoints_xy is None: # Критическая ошибка
+        if keypoints_xy is None: 
             print(f"Failed to get keypoints: {kp_process_error}")
             err_code = 503 if "model is not loaded" in (kp_process_error or "") else 500
             return jsonify({"success": False, "error": "Failed to obtain keypoints.", "details": kp_process_error}), err_code
 
-        if relative_kp_viz_path is None and kp_process_error: # Ошибка только визуализации
+        if relative_kp_viz_path is None and kp_process_error: 
              print(f"Warning: Keypoints obtained, but visualization failed: {kp_process_error}")
 
         if relative_kp_viz_path:
@@ -706,11 +652,8 @@ def weight_predict_route():
                 print(f"Error generating URL for keypoints visualization: {url_e}")
                 keypoints_image_url = None
 
-        # --- Если точки получены, продолжаем ---
 
-        # 4. Выполняем сегментацию (используем уже прочитанный image_bgr)
         seg_start = time.time(); segmented_image_bgr = None; seg_error = None
-        # Проверяем, является ли segmentation_model загруженной PyTorch моделью
         if isinstance(segmentation_model, torch.nn.Module):
             image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
             seg_mask_original_size, h, w, seg_error = predict_segmentation(image_rgb, target_size_seg=TARGET_SIZE_SEG)
@@ -723,7 +666,6 @@ def weight_predict_route():
              seg_error = "Segmentation model not loaded or not PyTorch" # Устанавливаем ошибку для информации
         print(f"Internal segmentation time: {time.time() - seg_start:.3f}s (Error: {seg_error})")
 
-        # 5. Предобработка для модели веса (используем image_bgr и keypoints_xy)
         prep_start = time.time(); transform_weight = get_pytorch_transforms(TARGET_SIZE_WEIGHT)
         orig_image_rgb_for_weight = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB); segmented_image_rgb_for_weight = cv2.cvtColor(segmented_image_bgr, cv2.COLOR_BGR2RGB)
         transformed_orig = transform_weight(image=orig_image_rgb_for_weight); orig_tensor = transformed_orig['image'].unsqueeze(0).to(DEVICE)
@@ -735,20 +677,16 @@ def weight_predict_route():
         keypoints_tensor = torch.tensor(normalized_keypoints_flat, dtype=torch.float32).unsqueeze(0).to(DEVICE)
         print(f"Preprocessing time: {time.time() - prep_start:.3f}s")
 
-        # 6. Предсказание веса
         weight_start = time.time(); weight_prediction_model.eval()
         with torch.no_grad(): predicted_weight = weight_prediction_model(orig_tensor, seg_tensor, keypoints_tensor).item()
         print(f"Weight prediction time: {time.time() - weight_start:.3f}s")
 
-        # 7. Создание изображения с весом
-        weight_image_path = None; weight_image_url = None
         base_image_for_weight_text = None
-        if keypoints_image_url: # Проверяем URL, а не путь
+        if keypoints_image_url: 
              try:
                  static_prefix = '/static/';
                  if static_prefix in keypoints_image_url:
                      rel_path = keypoints_image_url.split(static_prefix)[1]
-                     # Строим АБСОЛЮТНЫЙ путь к файлу на сервере
                      keypoints_image_phys_path = os.path.join(app.static_folder, rel_path)
                      if os.path.exists(keypoints_image_phys_path):
                          base_image_for_weight_text = cv2.imread(keypoints_image_phys_path)
@@ -771,7 +709,6 @@ def weight_predict_route():
             if not success_write: print(f"Error: Failed to write weight visualization image to {weight_image_path}")
             else: print(f"Weight visualization saved at: {weight_image_path}")
 
-            # Generate URL only if image was saved successfully
             if success_write and os.path.exists(weight_image_path):
                  relative_path = os.path.relpath(weight_image_path, app.static_folder).replace("\\", "/")
                  try: weight_image_url = url_for('static', filename=relative_path, _external=True); print(f"Generated Weight Image URL: {weight_image_url}")
@@ -781,7 +718,6 @@ def weight_predict_route():
 
         processing_time_s = time.time() - start_time; processing_time_str = f"{processing_time_s:.3f}s"
 
-        # Сохранение в историю
         try:
              result_weight_data = {"estimated_weight_kg": round(predicted_weight, 2)}
              history_entry = UploadHistory(
@@ -796,11 +732,11 @@ def weight_predict_route():
         result = {
             "success": True, "estimated_weight_kg": round(predicted_weight, 2),
             "processing_time": processing_time_str,
-            "segmentation_error": seg_error, # Сообщаем об ошибке сегментации
+            "segmentation_error": seg_error, 
             "keypoints_obtained_successfully": keypoints_xy is not None,
-            "image_url": weight_image_url, # URL картинки с надписью веса (может быть None)
-            "keypoints_image_url": keypoints_image_url, # URL картинки с точками (может быть None)
-            "keypoint_processing_error": kp_process_error # Сообщаем об ошибке обработки/визуализации точек
+            "image_url": weight_image_url, 
+            "keypoints_image_url": keypoints_image_url, 
+            "keypoint_processing_error": kp_process_error 
         }
         return jsonify(result), status_code
 
@@ -810,18 +746,13 @@ def weight_predict_route():
         if kp_process_error: error_message += f" | Keypoint Processing Error: {kp_process_error}"
         return jsonify({"success": False, "error": error_message}), 500
     finally:
-        # Файл читается в память, временный файл больше не нужен
-        # if upload_path and os.path.exists(upload_path):
-        #     try: os.remove(upload_path); print(f"Removed temporary weight prediction file: {upload_path}")
-        #     except OSError as rm_error: print(f"Error removing temporary weight prediction file {upload_path}: {rm_error}")
-        pass # Больше не удаляем временный файл здесь, т.к. не сохраняем его
+        pass
 # ----------------------------------------------------
 
 @app.route('/api/v1/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'ok'}), 200
 
-# --- Маршруты Аутентификации (без изменений) ---
 @app.route('/api/v1/auth/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -854,17 +785,16 @@ def login():
         return jsonify({"error": "Invalid credentials"}), 401
 
 @app.route('/api/v1/users/me', methods=['GET'])
-@jwt_required() # <<< ДОБАВЛЕН ДЕКОРАТОР >>>
+@jwt_required() 
 def get_current_user():
     current_user_id = get_jwt_identity(); user = User.query.get(current_user_id)
     if not user: return jsonify({"error": "User not found"}), 404
     user_info = {"id": user.id, "email": user.email}
     return jsonify(user_info), 200
-# ===============================================================
 
-# <<< Маршрут Истории >>>
+
 @app.route('/api/v1/history', methods=['GET'])
-@jwt_required() # <<< ДОБАВЛЕН ДЕКОРАТОР >>>
+@jwt_required() 
 def get_history():
     user_id = get_jwt_identity()
     print(f"Fetching history for user_id: {user_id}")
@@ -881,12 +811,10 @@ def get_history():
 # ============================================
 
 
-# --- Запуск приложения ---
 if __name__ == '__main__':
     print("--- Ensure migrations are up to date ---")
     print("Run: flask db migrate -m \"<message>\" and flask db upgrade")
     print(f"Flask static folder: {app.static_folder}")
     print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
-    # Используем threaded=True было важно для ВНУТРЕННИХ запросов, но теперь не обязательно
-    # Оставляем его на случай других фоновых задач или если Flask dev server работает лучше с ним
+    
     app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)
