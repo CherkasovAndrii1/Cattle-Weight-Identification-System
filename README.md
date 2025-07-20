@@ -122,6 +122,7 @@ Annotation File: You must create annotations in the COCO JSON format.
 * This file must contain lists for images, annotations, and categories.
 * Image entries must include id, file_name, width, and height.
 * Annotation entries must link to an image via image_id and contain a keypoints array. This array is a flat list of 27 numbers: [x1, y1, v1, x2, y2, v2, ...] for the 9 keypoints. v stands for visibility.
+* An example of annotation file is in models folder named COCO_Side_example.json
 
 ### 2. Configuring the Script (Cattle_keypoints.ipynb)
 Update Paths: In the second code cell, change the values of these variables to your folder and file paths:
@@ -148,11 +149,14 @@ This model identifies the pixels belonging to the cattle, a reference sticker, a
 * Masks: For each image, create a corresponding segmentation mask and save it in the annotations subfolder.
 
 The mask filename must match the image filename exactly, with ___fuse.png added at the end (e.g., cow1.jpg has a mask named cow1.jpg___fuse.png).
+An example image of mask is in models folder named 1_s_36_F.jpg___fuse_example
 Masks must be colored with specific RGB values:
 
 * Cattle: (255, 30, 249)
 * Sticker: (0, 117, 255)
 * Background: (0, 255, 193)
+
+The sticker is not as neccessary as Cattle color and background, model can work without stickers
 
 ### 2. Configuring the Script (Cattle_Segmentation.ipynb)
 Update the Directory Path: In the Config class, modify the BASE_DIR variable to point to your main dataset folder.
@@ -167,6 +171,7 @@ This model integrates the images and keypoints to predict the final weight.
 ### 1. Preparing Your Data
 Image and Keypoint Data: Have the folders and the JSON file from Part A ready.
 Weight Data File: Create a CSV file (e.g., weights.csv) containing two columns: filename (the image file name) and weight (the corresponding weight in kg).
+An example attached in the models folder
 Model Files: Ensure the trained models from Part A (.keras file) and Part B (.keras or .pth file) are available.
 ### 2. Configuring the Script (Final_model.ipynb)
 Update Model Paths: At the top of the script, set the correct paths for the models you trained in the previous steps.
