@@ -80,6 +80,36 @@
 
 To work with your own cattle image dataset, you need to create it, load it, and retrain the neural models. The process is divided into three main parts, one for each model.
 
+### 0. Setting up the Environment with Anaconda
+Before you begin, it's essential to set up a dedicated environment with the correct libraries to ensure the code runs smoothly. Using Anaconda is a robust way to manage this.
+
+### 1. Create an Anaconda Environment
+First, open your Anaconda Prompt (or terminal on macOS/Linux). 
+
+Create a new environment named cattle_env that uses Python version 3.10.16.
+
+Run the following command:
+
+* conda create -n cattle_env python=3.10.16
+
+When prompted, type y and press Enter to proceed.
+
+### 2. Activate the Environment
+Once the environment is created, you must activate it. You will need to do this every time you open a new terminal to work on this project.
+
+* conda activate cattle_env
+
+Your terminal prompt should now show (cattle_env) at the beginning, indicating that the environment is active.
+
+### 3. Install Dependencies
+This project requires a specific set of libraries, including both PyTorch and TensorFlow. The recommended way to install these is using pip inside your conda environment for better package management.
+
+Navigate to models folder and install all the required packages by running the following command in your activated terminal:
+
+* pip install -r requirements.txt
+
+Once the installation is complete, you are ready to proceed with preparing your data and retraining the models.
+
 ## Part A: Retraining the Keypoint Detection Model
 
 This model's purpose is to find 9 specific anatomical points on the cattle.
