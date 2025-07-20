@@ -76,4 +76,63 @@
 ## 7. If you want you can check request history in the top menu also you can export it on your device in json format
 <img width="1869" height="965" alt="image" src="https://github.com/user-attachments/assets/eede1575-e6a8-4035-9663-458ac28a2546" />
 
+## 8. To work with your own dataset
+To work with your own cattle image dataset, you need to create it, load it, and retrain the neural models. The process is divided into three main parts, one for each model.
+## Part A: Retraining the Keypoint Detection Model
+This model's purpose is to find 9 specific anatomical points on the cattle.
+### 1. Preparing Your Data
+Image Folder: Place all your cattle images (preferably from a side-on view) into a single directory.
+Annotation File: You must create annotations in the COCO JSON format.
+* o	Create a single JSON file (e.g., my_coco_annotations.json).
+* o	This file must contain lists for images, annotations, and categories.
+* o	Image entries must include id, file_name, width, and height.
+* o	Annotation entries must link to an image via image_id and contain a keypoints array. This array is a flat list of 27 numbers: [x1, y1, v1, x2, y2, v2, ...] for the 9 keypoints. v stands for visibility.
+### 2. Configuring the Script (Cattle_keypoints.ipynb)
+Update Paths: In the second code cell, change the values of these variables to your folder and file paths:
+* o	new_images_dir = r"C:\path\to\your\images"
+* o	new_annotations_file = r"C:\path\to\your\my_coco_annotations.json"
+Enable Training: Find the training function call, which is commented out by default. Uncomment it to activate the training process:
+history = train_model_func(X_train, y_train, X_val, y_val, model)
+Adjust Parameters: You can modify EPOCHS, BATCH_SIZE, or DATA_LIMIT to suit your dataset and hardware.
+### 3. Running the Training
+* •	Execute all cells in the Cattle_keypoints.ipynb notebook from top to bottom.
+* •	The script will train the model on your data and automatically save the best version as best_keypoints_model_9pts_limited.keras.
+## Part B: Retraining the Image Segmentation Model
+This model identifies the pixels belonging to the cattle, a reference sticker, and the background.
+### 1. Preparing Your Data
+* •	Folder Structure: Create a main dataset folder. Inside it, create two subfolders: images and annotations.
+* •	Images: Place your original cattle images into the images subfolder.
+* •	Masks: For each image, create a corresponding segmentation mask and save it in the annotations subfolder.
+The mask filename must match the image filename exactly, with ___fuse.png added at the end (e.g., cow1.jpg has a mask named cow1.jpg___fuse.png).
+Masks must be colored with specific RGB values:
+* Cattle: (255, 30, 249)
+* Sticker: (0, 117, 255)
+* Background: (0, 255, 193)
+### 2. Configuring the Script (Cattle_Segmentation.ipynb)
+Update the Directory Path: In the Config class, modify the BASE_DIR variable to point to your main dataset folder.
+* BASE_DIR = r'C:\path\to\your\segmentation\dataset'
+Adjust Parameters: You can change BATCH_SIZE, LEARNING_RATE, or NUM_EPOCHS in the Config class.
+### 3. Running the Training
+Execute all cells in the Cattle_Segmentation.ipynb notebook. The main() function automates the process of loading data, training, and saving the best model to the path specified in SAVED_MODEL_PATH.
+## Part C: Retraining the Final Weight Estimation Model
+This model integrates the images and keypoints to predict the final weight.
+### 1. Preparing Your Data
+Image and Keypoint Data: Have the folders and the JSON file from Part A ready.
+Weight Data File: Create a CSV file (e.g., weights.csv) containing two columns: filename (the image file name) and weight (the corresponding weight in kg).
+Model Files: Ensure the trained models from Part A (.keras file) and Part B (.keras or .pth file) are available.
+### 2. Configuring the Script (Final_model.ipynb)
+Update Model Paths: At the top of the script, set the correct paths for the models you trained in the previous steps.
+* KERAS_MODEL_PATH = r'path\to\your\best_keypoints_model_9pts_limited.keras'
+* SEGMENTATION_MODEL_PATH = r'path\to\your\best_cattle_segmentation_model_6.keras'
+Update Data Paths: In the main() function, update the directory and file paths to match your dataset.
+* original_dir: Path to the folder with your original images.
+* segmented_dir: Path to the folder with your segmentation masks.
+* csv_file: Path to your weights.csv file.
+* json_annotation_file: Path to your keypoint annotation JSON file.
+Enable Training: Find the RUN_TRAINING variable and set it to True.
+* RUN_TRAINING = True
+### 3. Running the Training
+* •	Execute all cells in the Final_model.ipynb notebook.
+* •	The script will load all data sources, filter for complete samples, and begin training.
+* •	The best-performing weight prediction model will be saved to the location specified by the BEST_MODEL_SAVE_PATH variable.
 
