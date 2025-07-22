@@ -1,5 +1,5 @@
 // src/constants/apiEndpoints.js
-export const API_BASE_URL = 'http://localhost:5000'; // Базовый URL для API
+export const API_BASE_URL = 'http://http://20.39.232.236:5000'; // Базовый URL для API
 
 export const API_ENDPOINTS = {
     segmentation: `${API_BASE_URL}/api/v1/segmentation`,
